@@ -8,7 +8,9 @@ import math
 
 from tqdm import tqdm
 
-discretization = .01
+# Reference: Cover & Thomas "Elements of Information Theory" pp. 333-336
+
+discretization = .002
 R_min = 0
 R_max = 40
 
@@ -34,13 +36,14 @@ def get_channel(increments):
     for jx, j in enumerate(np.arange(R_min, R_max, discretization)):
       xl = j
       xu = j + discretization
-      # apologies for the inline for speedup
-      density = 0.5*((1 + math.erf((xu - mean) / std * 1.4142135623730951)) - (1 + math.erf((xl - mean) / std * 1.4142135623730951)))
+      # apologies for the inlining for speedup
+      # density = norm.cdf(xu, loc=mean, scale=std) - norm.cdf(xl, loc=mean, scale=std)
+      density = 0.5 * ((1 + math.erf((xu - mean) / (std * 1.4142135623730951))) - (1 + math.erf((xl - mean) / (std * 1.4142135623730951))))
       channel[ix][jx] = density
     channel[ix] = channel[ix] / np.sum(channel[ix]) # since the distributions are truncated
   return channel
 
-# TODO vectorize
+# TODO vectorize more
 def update_q(q, r, channel):
   q_new = np.zeros_like(q)
   for y in range(q_new.shape[0]):
@@ -61,11 +64,19 @@ def get_capacity(q, r, channel):
         capacity += r[x] * channel[x][y] * (np.log(q[y][x]) - np.log(r[x]))
   return capacity
 
-def plot(channel, vals=[])
+def plot(channel, vals=[2.25,3,4.25,6,8.5,13,25]):
+  plt.figure()
+  x_axis = np.arange(channel.shape[0])*discretization + R_min
+  for r_mean in vals:
+    bucket = int((r_mean - R_min) / discretization)
+    plt.plot(x_axis, channel[bucket])
+  plt.show()
 
 def main():
   increments = int((R_max - R_min)/discretization)
   channel = get_channel(increments)
+  # plot(channel)
+
   capacity = 0
   # q has y (the conditioning variable) as rows and x as columns.
   q = np.ones((increments, increments))
